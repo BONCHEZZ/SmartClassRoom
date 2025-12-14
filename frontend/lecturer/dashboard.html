@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lecturer Dashboard - SmartTrack</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; }
+        .sidebar { min-height: 100vh; background: #2c3e50; color: white; }
+        .sidebar a { color: #bdc3c7; text-decoration: none; padding: 10px 20px; display: block; }
+        .sidebar a:hover, .sidebar a.active { background: #34495e; color: white; }
+        .card-stat { border: none; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .status-upcoming { border-left: 5px solid #3498db; }
+        .status-ongoing { border-left: 5px solid #2ecc71; }
+        .status-cancelled { border-left: 5px solid #e74c3c; }
+    </style>
+</head>
+<body>
+
+<div class="d-flex">
+    <!-- Sidebar -->
+    <div class="sidebar d-none d-md-block col-md-2">
+        <h4 class="text-center py-4">SmartTrack</h4>
+        <div class="text-center mb-4">
+            <img id="profileImg" src="https://via.placeholder.com/80" class="rounded-circle mb-2" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'80\' height=\'80\'><rect width=\'100%\' height=\'100%\' fill=\'%238ca0b6\' /><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' font-size=\'14\' fill=\'white\'>No Img</text></svg>'">
+            <p id="lecturerName" class="mb-0 fw-bold">Loading...</p>
+            <small class="text-muted">Lecturer</small>
+        </div>
+        <a href="#" class="active" onclick="showDashboard()"><i class="fas fa-chalkboard-teacher me-2"></i> Dashboard</a>
+        <a href="#" id="nav-myclasses"><i class="fas fa-calendar-check me-2"></i> My Classes</a>
+        <a href="#"><i class="fas fa-chart-bar me-2"></i> Reports</a>
+        <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt me-2"></i> Logout</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="col-12 col-md-10 p-4">
+        <div id="alertArea"></div>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3>Lecturer Dashboard</h3>
+            <div>
+                <button class="btn btn-sm btn-primary me-2" data-bs-toggle="modal" data-bs-target="#addClassModal">
+                    <i class="fas fa-plus me-1"></i> Add Class
+                </button>
+                <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#scanRoomModal">
+                    <i class="fas fa-qrcode me-2"></i> Scan Room QR (Check-In)
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card card-stat p-3">
+                    <small class="text-muted">Today's Classes</small>
+                    <h2 id="totalClasses">--</h2>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-stat p-3">
+                    <small class="text-muted">Avg Attendance</small>
+                    <h2 id="avgAttendance">--%</h2>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card card-stat p-3 bg-primary text-white">
+                    <small>Next Class</small>
+                    <h5 id="nextClass" class="mt-1 mb-0">Loading...</h5>
+                    <div id="nextClassAction" class="mt-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schedule -->
+        <div id="scheduleCard" class="card card-stat">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Today's Schedule</h5>
+                <button class="btn btn-sm btn-primary" onclick="loadDashboard()"><i class="fas fa-sync"></i> Refresh</button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Course / Unit</th>
+                                <th>Room</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scheduleTable">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Classes Iframe View (hidden by default) -->
+        <div id="view-myclasses-iframe" style="display:none;">
+            <div class="card card-stat">
+                <div class="card-body p-0">
+                    <iframe id="myClassesIframe" src="" style="width:100%;height:600px;border:0;display:block"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Class Modal -->
+<div class="modal fade" id="addClassModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Class</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addClassForm">
+                    <div class="mb-3">
+                        <label class="form-label">Course</label>
+                        <input type="text" class="form-control" id="classCourse" placeholder="e.g. BSc Computer Science">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Unit</label>
+                        <input type="text" class="form-control" id="classUnit" placeholder="e.g. Data Structures" required>
+                    </div>
+                    <div class="mb-3 row">
+                        <div class="col">
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-control" id="classDate" required>
+                        </div>
+                        <div class="col">
+                            <label class="form-label">Start Time</label>
+                            <input type="time" class="form-control" id="classStartTime" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Room</label>
+                        <input type="text" class="form-control" id="classRoom" placeholder="e.g. Room A12">
+                    </div>
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary">Create</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Student QR Display Modal -->
+<div class="modal fade" id="classQrModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered text-center">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Student Attendance QR</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h3 id="qrClassName">Unit Name</h3>
+                <p class="text-muted">Ask students to scan this code</p>
+                <div id="qrcode" class="d-flex justify-content-center my-3"></div>
+                <div class="alert alert-info">
+                    Live Attendance: <strong id="liveCount">0</strong> students
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="endClass()">End Class</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Room Scan Modal (Lecturer Check-In) -->
+<div class="modal fade" id="scanRoomModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Verify Room Presence</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="reader" style="width: 100%"></div>
+                <p class="mt-2">Scan the QR code posted in the classroom</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<!-- Load socket.io from backend explicitly (avoid relative path when using Live Server) -->
+<script src="http://localhost:5000/socket.io/socket.io.js"></script>
+
+<script>
+    const API_URL = 'http://localhost:5000/api';
+    const token = localStorage.getItem('token');
+    // Guard socket initialization in case the script fails to load
+    const socket = (typeof io !== 'undefined') ? io('http://localhost:5000') : { emit: () => {} };
+    let currentClassId = null;
+    let qrCodeObj = null;
+
+    if (!token) window.location.href = '../login.html';
+
+    // --- 1. Load Dashboard ---
+    async function loadDashboard() {
+        try {
+            const res = await fetch(`${API_URL}/lecturer/dashboard`, {
+                headers: { 'Authorization': token }
+            });
+            if (!res.ok) throw new Error(`Server returned ${res.status}`);
+            const data = await res.json();
+
+            // Profile
+            document.getElementById('lecturerName').innerText = data.user.name;
+            document.getElementById('profileImg').src = data.user.profileImage;
+
+            // Stats
+            document.getElementById('totalClasses').innerText = data.stats.totalClasses;
+            document.getElementById('avgAttendance').innerText = `${data.stats.avgAttendance}%`;
+            document.getElementById('nextClass').innerText = data.stats.nextClass;
+
+            // Next Class Action
+            const nextClassObj = data.schedule.find(c => c.status === 'upcoming' || c.status === 'delayed');
+            if (nextClassObj) {
+                const unitSafe = (nextClassObj.unit || '').replace(/'/g, "\\'");
+                document.getElementById('nextClassAction').innerHTML = `<button class="btn btn-sm btn-light text-primary w-100" onclick="generateQrAndStart('${nextClassObj._id}', '${unitSafe}')"><i class="fas fa-qrcode me-1"></i> Generate QR</button>`;
+            } else {
+                document.getElementById('nextClassAction').innerHTML = '';
+            }
+
+            // Schedule
+            const tbody = document.getElementById('scheduleTable');
+            tbody.innerHTML = '';
+            
+            data.schedule.forEach(cls => {
+                const time = new Date(cls.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const unitSafe = (cls.unit || '').replace(/'/g, "\\'");
+                let actions = '';
+                let statusBadge = '';
+
+                if (cls.status === 'upcoming') {
+                    statusBadge = '<span class="badge bg-primary">Upcoming</span>';
+                    actions = `
+                        <button class="btn btn-sm btn-success me-1" onclick="startClass('${cls._id}', '${unitSafe}')">Start</button>
+                        <button class="btn btn-sm btn-dark me-1" onclick="generateQrAndStart('${cls._id}', '${unitSafe}')"><i class="fas fa-qrcode"></i> Generate QR</button>
+                        <button class="btn btn-sm btn-warning me-1" onclick="cancelClass('${cls._id}')">Cancel</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteClass('${cls._id}')"><i class="fas fa-trash"></i></button>
+                    `;
+                } else if (cls.status === 'ongoing') {
+                    statusBadge = '<span class="badge bg-success">Ongoing</span>';
+                    actions = `
+                        <button class="btn btn-sm btn-info me-1" onclick="showQrModal('${cls._id}', '${unitSafe}')">Show QR</button>
+                        <button class="btn btn-sm btn-danger" onclick="endClass('${cls._id}')">End</button>
+                    `;
+                } else {
+                    statusBadge = `<span class="badge bg-secondary">${cls.status}</span>`;
+                    actions = `<button class="btn btn-sm btn-danger" onclick="deleteClass('${cls._id}')"><i class="fas fa-trash"></i> Delete</button>`;
+                }
+
+                tbody.innerHTML += `
+                    <tr data-id="${cls._id}">
+                        <td>${time}</td>
+                        <td><strong>${cls.unit}</strong></td>
+                        <td>${cls.room || 'TBA'}</td>
+                        <td>${statusBadge}</td>
+                        <td>${actions}</td>
+                    </tr>
+                `;
+            });
+
+            // Also refresh sidebar/table data
+            // (table view will be populated when user clicks 'My Classes')
+            if (typeof loadMyClasses === 'function') loadMyClasses();
+
+        } catch (err) {
+            console.error(err);
+            const alertArea = document.getElementById('alertArea');
+            if (alertArea) alertArea.innerHTML = `<div class="alert alert-danger">Failed to load dashboard: ${err.message}</div>`;
+        }
+    }
+
+    // --- 2. Class Actions ---
+    async function startClass(id, name) {
+        // In a real app, this might be triggered after "Scan Room QR" success
+        try {
+            await fetch(`${API_URL}/lecturer/class/${id}/start`, {
+                method: 'POST',
+                headers: { 'Authorization': token }
+            });
+            showQrModal(id, name);
+            loadDashboard();
+        } catch (err) {
+            Swal.fire('Error', 'Could not start class', 'error');
+        }
+    }
+
+    async function generateQrAndStart(id, name) {
+        try {
+            await fetch(`${API_URL}/lecturer/class/${id}/start`, {
+                method: 'POST',
+                headers: { 'Authorization': token }
+            });
+            
+            socket.emit('classUpdate', {
+                title: 'Attendance Open',
+                message: `QR Code generated for ${name}. Please scan to mark attendance.`
+            });
+
+            showQrModal(id, name);
+            loadDashboard();
+        } catch (err) {
+            Swal.fire('Error', 'Could not generate QR', 'error');
+        }
+    }
+
+    async function cancelClass(id) {
+        if(!confirm('Are you sure?')) return;
+        await fetch(`${API_URL}/lecturer/class/${id}/cancel`, {
+            method: 'POST',
+            headers: { 'Authorization': token }
+        });
+        loadDashboard();
+    }
+
+    async function deleteClass(id) {
+        if(!confirm('Are you sure you want to delete this class?')) return;
+        try {
+                const res = await fetch(`${API_URL}/classes/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': token }
+            });
+            if (res.ok) {
+                Swal.fire('Deleted', 'Class deleted successfully', 'success');
+                loadDashboard();
+                if (typeof loadMyClasses === 'function') loadMyClasses();
+                // If My Classes iframe is present, reload it to reflect deletion
+                const iframe = document.getElementById('myClassesIframe');
+                if (iframe && iframe.contentWindow) iframe.contentWindow.location.reload();
+            } else {
+                const data = await res.json();
+                Swal.fire('Error', data.error || 'Failed to delete class', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            Swal.fire('Error', 'Network error', 'error');
+        }
+    }
+
+    async function endClass(id) {
+        const targetId = id || currentClassId;
+        await fetch(`${API_URL}/lecturer/class/${targetId}/end`, {
+            method: 'POST',
+            headers: { 'Authorization': token }
+        });
+        bootstrap.Modal.getInstance(document.getElementById('classQrModal')).hide();
+        loadDashboard();
+    }
+
+    // --- 3. QR Display Logic ---
+    function showQrModal(id, name) {
+        currentClassId = id;
+        document.getElementById('qrClassName').innerText = name;
+        
+        const modal = new bootstrap.Modal(document.getElementById('classQrModal'));
+        modal.show();
+
+        // Clear previous QR
+        document.getElementById('qrcode').innerHTML = '';
+        
+        // Request server-side time-bound QR payload (classId|token)
+        (async () => {
+            try {
+                const res = await fetch(`${API_URL}/lecturer/class/${id}/qr`, { headers: { 'Authorization': token } });
+                if (!res.ok) throw new Error('Failed to get QR');
+                const json = await res.json();
+                const payload = json.qrPayload || id;
+                qrCodeObj = new QRCode(document.getElementById("qrcode"), {
+                    text: payload,
+                    width: 250,
+                    height: 250
+                });
+            } catch (e) {
+                console.error('QR generation failed', e);
+                qrCodeObj = new QRCode(document.getElementById("qrcode"), { text: id, width: 250, height: 250 });
+            }
+        })();
+
+        // Start polling for live attendance count
+        updateLiveCount(id);
+    }
+
+    async function updateLiveCount(id) {
+        if (currentClassId !== id) return;
+        const res = await fetch(`${API_URL}/lecturer/class/${id}/attendance`, {
+            headers: { 'Authorization': token }
+        });
+        const data = await res.json();
+        document.getElementById('liveCount').innerText = data.count;
+        
+        // Poll every 5 seconds if modal is open
+        if (document.getElementById('classQrModal').classList.contains('show')) {
+            setTimeout(() => updateLiveCount(id), 5000);
+        }
+    }
+
+    // --- 4. Room Scanner (Lecturer Check-In) ---
+    let html5QrcodeScanner;
+    document.getElementById('scanRoomModal').addEventListener('shown.bs.modal', () => {
+        html5QrcodeScanner = new Html5Qrcode("reader");
+        html5QrcodeScanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            onScanSuccess,
+            () => {}
+        );
+    });
+
+    document.getElementById('scanRoomModal').addEventListener('hidden.bs.modal', () => {
+        if (html5QrcodeScanner) html5QrcodeScanner.stop().then(() => html5QrcodeScanner.clear());
+    });
+
+    function onScanSuccess(decodedText) {
+        html5QrcodeScanner.stop();
+        bootstrap.Modal.getInstance(document.getElementById('scanRoomModal')).hide();
+        
+        // Verify room logic here (Mock)
+        Swal.fire({
+            icon: 'success',
+            title: 'Room Verified',
+            text: `Checked in at: ${decodedText}`,
+            timer: 2000
+        });
+    }
+
+    function logout() {
+        localStorage.removeItem('token');
+        window.location.href = '../login.html';
+    }
+
+    loadDashboard();
+
+    // --- 5. Create Class Form ---
+    document.getElementById('addClassForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const course = document.getElementById('classCourse').value;
+        const unit = document.getElementById('classUnit').value;
+        const date = document.getElementById('classDate').value;
+        const startTime = document.getElementById('classStartTime').value;
+        const room = document.getElementById('classRoom').value;
+
+        if (!unit || !date || !startTime) {
+            return Swal.fire('Validation', 'Please provide unit, date and start time', 'warning');
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/classes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                body: JSON.stringify({ course, unit, startDate: date, start_time: startTime, room })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                Swal.fire('Success', 'Class created', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('addClassModal')).hide();
+                // clear form
+                document.getElementById('addClassForm').reset();
+                loadDashboard();
+                    // refresh sidebar
+                    if (typeof loadMyClasses === 'function') loadMyClasses();
+            } else {
+                Swal.fire('Error', data.error || 'Failed to create class', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            Swal.fire('Error', 'Network or server error', 'error');
+        }
+    });
+
+    // --- My Classes loader and focus ---
+    async function loadMyClasses() {
+        try {
+            const res = await fetch(`${API_URL}/lecturer/classes`, { headers: { 'Authorization': token } });
+            if (!res.ok) throw new Error(`Server returned ${res.status}`);
+            const classes = await res.json();
+
+            // populate internal cache table (used when My Classes view opens)
+            const tbody = document.getElementById('myClassesTable');
+            if (tbody) {
+                tbody.innerHTML = classes.map(c => {
+                    const dt = c.startTime ? new Date(c.startTime) : null;
+                    const label = dt ? dt.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'TBA';
+                    const actions = `<button class="btn btn-sm btn-primary me-1" onclick="showQrModal('${c._id}','${(c.unit||'').replace(/'/g,"\'")}')">Show QR</button>`;
+                    return `
+                        <tr data-id="${c._id}">
+                            <td>${label}</td>
+                            <td>${c.unit || ''}</td>
+                            <td>${c.course || ''}</td>
+                            <td>${c.room || 'TBA'}</td>
+                            <td>${c.status || ''}</td>
+                            <td>${actions}</td>
+                        </tr>`;
+                }).join('');
+            }
+        } catch (err) {
+            console.error('Failed to load classes', err);
+            const alertArea = document.getElementById('alertArea');
+            if (alertArea) alertArea.innerHTML = `<div class="alert alert-warning">Could not load classes: ${err.message}</div>`;
+        }
+    }
+
+    function focusClass(id, unit) {
+        const row = document.querySelector(`#scheduleTable tr[data-id="${id}"]`);
+        if (row) {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.classList.add('table-primary');
+            setTimeout(() => row.classList.remove('table-primary'), 2500);
+            return;
+        }
+        // otherwise open My Classes view and highlight
+        showMyClasses(id);
+    }
+
+    // Initial load cache
+    if (token) loadMyClasses();
+
+    // --- View toggles ---
+    function showMyClasses(highlightId) {
+        document.getElementById('scheduleCard').style.display = 'none';
+        document.getElementById('view-myclasses-iframe').style.display = 'block';
+        const iframe = document.getElementById('myClassesIframe');
+        // Add a cache-busting param so refresh shows latest data when reopened
+        const suffix = highlightId ? `?highlight=${highlightId}` : '';
+        iframe.src = `my-classes.html${suffix}`;
+    }
+
+    function showDashboard() {
+        document.getElementById('view-myclasses-iframe').style.display = 'none';
+        document.getElementById('scheduleCard').style.display = 'block';
+        // refresh today's schedule
+        loadDashboard();
+    }
+
+    // Attach UI event listeners (guard for missing elements)
+    const navMy = document.getElementById('nav-myclasses');
+    if (navMy) navMy.addEventListener('click', e => { e.preventDefault(); showMyClasses(); });
+
+    const backBtn = document.getElementById('btn-back-dashboard');
+    if (backBtn) backBtn.addEventListener('click', e => { e.preventDefault(); showDashboard(); });
+
+    const refreshIframeBtn = document.getElementById('btn-refresh-iframe');
+    if (refreshIframeBtn) refreshIframeBtn.addEventListener('click', e => {
+        e.preventDefault();
+        const iframe = document.getElementById('myClassesIframe');
+        if (iframe) iframe.contentWindow.location.reload();
+    });
+</script>
+</body>
+</html>
