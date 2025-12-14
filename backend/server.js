@@ -10,20 +10,21 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server, { cors: { origin: '*' } });
 
-// expose io globally for lightweight emit usage in controllers/routes
-global.io = io;
+// NEWLY ADDED CODE: Make io accessible to routes
+app.set('io', io);
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
 // Routes
-app.use('/api/attendance', require('./routes/attendanceRoutes')(io));
+app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/classes', require('./routes/classRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/student', require('./routes/studentRoutes'));
 app.use('/api/lecturer', require('./routes/lecturerRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/ai', require('./routes/aiRoutes')); // NEWLY ADDED
 
 // Socket.io connection
 io.on('connection', socket => {
@@ -34,14 +35,11 @@ io.on('connection', socket => {
     console.log(`Client joined class room: ${classId}`);
   });
 
-  socket.on('classUpdate', data => {
-    socket.broadcast.emit('notifyStudents', data);
-  });
-
   socket.on('disconnect', () => {
     console.log('Client disconnected');
   });
 });
+
 
 // Export the app for testing purposes
 module.exports = app;

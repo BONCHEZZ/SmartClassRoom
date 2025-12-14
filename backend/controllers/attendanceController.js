@@ -3,60 +3,71 @@ const ClassSession = require('../models/ClassSession');
 
 // Mark attendance for a student by scanning QR.
 // Expects body: { qrCode: "<classId>|<token>" }
-// Uses req.user.id (from auth middleware) as studentId.
+// Uses req.user.id (from auth middleware) as userId.
 const markAttendance = async (req, res, io) => {
   try {
-    const studentId = req.user && req.user.id ? req.user.id : null;
-    if (!studentId) return res.status(401).json({ error: 'Unauthorized' });
+    // MODIFIED: Use a generic 'userId'
+    const userId = req.user && req.user.id ? req.user.id : null;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     const { qrCode } = req.body;
     if (!qrCode) return res.status(400).json({ error: 'qrCode is required' });
 
-    // Parse QR payload: allow formats like "classId|token" or plain classId
     let [classId, token] = qrCode.split('|');
     classId = classId && classId.trim();
 
     const cls = await ClassSession.findById(classId);
     if (!cls) return res.status(404).json({ error: 'Class session not found' });
+    
+    // NEWLY ADDED CODE: Check if the class is actually ongoing
+    if (cls.status !== 'ongoing') {
+      return res.status(400).json({ error: 'Class is not active for attendance.' });
+    }
 
     const now = new Date();
 
-    // Validate token if class has a token
-    if (cls.qrToken) {
-      if (!token || token !== cls.qrToken) {
-        return res.status(400).json({ error: 'Invalid or missing QR token' });
-      }
-      if (cls.qrExpires && now > cls.qrExpires) {
-        return res.status(410).json({ error: 'QR token expired' });
-      }
-    } else {
-      // Backwards compatibility: allow marking only for ongoing classes or within a 30-minute window
-      const windowStart = cls.actualStart || cls.startTime;
-      const windowEnd = new Date((windowStart || now).getTime() + 30 * 60 * 1000);
-      if (now < windowStart || now > windowEnd) {
-        return res.status(400).json({ error: 'Attendance not allowed at this time' });
-      }
+    if (!cls.qrToken || !cls.qrExpires) {
+        return res.status(400).json({ error: 'Attendance is not currently active for this class.' });
+    }
+    if (token !== cls.qrToken) {
+        return res.status(400).json({ error: 'Invalid QR code.' });
+    }
+    if (now > cls.qrExpires) {
+        return res.status(410).json({ error: 'QR code has expired.' });
     }
 
-    // Prevent duplicate scans
-    const existing = await Attendance.findOne({ classId: cls._id.toString(), studentId, status: 'present' });
+    // MODIFIED: Prevent duplicate scans using the new unique index
+    const existing = await Attendance.findOne({ classSession: cls._id, user: userId });
     if (existing) return res.status(409).json({ error: 'Already checked in' });
 
-    // Determine lateness for student relative to scheduled startTime
     const scheduled = cls.startTime || cls.actualStart || now;
-    const lateThresholdMinutes = 10; // configurable threshold
+    const lateThresholdMinutes = 10;
     const isLate = (now - new Date(scheduled)) > lateThresholdMinutes * 60 * 1000;
 
-    const newAttendance = new Attendance({ classId: cls._id.toString(), studentId, timestamp: now, status: 'present', late: isLate });
+    // MODIFIED: Create attendance record with the new schema
+    const newAttendance = new Attendance({
+      classSession: cls._id,
+      user: userId,
+      role: 'student',
+      timestamp: now,
+      status: isLate ? 'late' : 'present',
+      late: isLate
+    });
     await newAttendance.save();
 
-    // Emit a real-time update to the specific class session room
-    try { if (io) io.to(cls._id.toString()).emit('attendanceUpdated', { classId: cls._id.toString(), studentId, timestamp: now, late: isLate });
-      else if (global && global.io) global.io.to(cls._id.toString()).emit('attendanceUpdated', { classId: cls._id.toString(), studentId, timestamp: now, late: isLate });
+    // MODIFIED: Emit with new data structure
+    try { 
+      const payload = { classId: cls._id.toString(), userId, timestamp: now, late: isLate };
+      if (io) io.to(cls._id.toString()).emit('attendanceUpdated', payload);
+      else if (global && global.io) global.io.to(cls._id.toString()).emit('attendanceUpdated', payload);
     } catch (e) { console.error('Socket emit failed', e); }
 
     return res.status(201).json({ message: 'Attendance marked', late: isLate });
   } catch (error) {
+    // MODIFIED: Better error handling for duplicate key
+    if (error.code === 11000) {
+      return res.status(409).json({ error: 'Already checked in.' });
+    }
     console.error(error);
     res.status(500).json({ error: 'Server Error' });
   }
@@ -64,10 +75,10 @@ const markAttendance = async (req, res, io) => {
 
 const getAttendance = async (req, res) => {
   try {
-    // If :id provided treat it as classId; otherwise return all
     const q = {};
-    if (req.params.id) q.classId = req.params.id;
-    const attendanceRecords = await Attendance.find(q).sort({ timestamp: -1 });
+    // MODIFIED: Query by classSession instead of classId
+    if (req.params.id) q.classSession = req.params.id;
+    const attendanceRecords = await Attendance.find(q).populate('user', 'name regNo').sort({ timestamp: -1 });
     res.status(200).json(attendanceRecords);
   } catch (error) {
     console.error(error);

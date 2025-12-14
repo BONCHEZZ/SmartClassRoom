@@ -22,6 +22,11 @@ router.get('/dashboard', auth, async (req, res) => {
       startTime: { $gte: startOfDay, $lte: endOfDay }
     }).sort({ startTime: 1 });
 
+    // 3. Available Classes (all upcoming classes created by lecturers)
+    const availableClasses = await ClassSession.find({
+      startTime: { $gt: new Date() }
+    }).sort({ startTime: 1 }).populate('lecturer', 'name');
+
     // 3. Attendance Stats & History
     const allAttendance = await Attendance.find({ studentId }).sort({ timestamp: -1 });
     const totalAttended = allAttendance.filter(a => a.status === 'present').length;
@@ -43,6 +48,13 @@ router.get('/dashboard', auth, async (req, res) => {
     const courseStats = {}; 
     // This would require more complex aggregation in production
 
+    // Enrich last 5 attendance records with class session info for frontend
+    const lastRecords = allAttendance.slice(0, 5);
+    const history = await Promise.all(lastRecords.map(async (r) => {
+      const cls = await ClassSession.findById(r.classId).select('unit startTime room');
+      return { ...r.toObject(), classSession: cls };
+    }));
+
     res.json({
       user,
       stats: {
@@ -52,7 +64,8 @@ router.get('/dashboard', auth, async (req, res) => {
         missed: totalClasses - totalAttended
       },
       schedule: todaysClasses,
-      history: allAttendance.slice(0, 5), // Last 5 records
+      availableClasses,
+      history,
       aiInsights: {
         riskLevel,
         message: aiMessage
