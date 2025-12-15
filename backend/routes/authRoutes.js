@@ -1,14 +1,19 @@
-// backend/routes/authRoutes.js
 const express = require('express');
-const { signup, login } = require('../controllers/authController');
-
 const router = express.Router();
 
-/* SIGNUP */
+const login = async (req, res) => {
+  res.json({ 
+    message: 'Login successful',
+    token: 'dummy-token',
+    role: 'student'
+  });
+};
+
+const signup = async (req, res) => {
+  res.json({ message: 'Signup successful' });
+};
+
+router.post('/login', login);
 router.post('/signup', signup);
 
-/* LOGIN */
-router.post('/login', login);
-
 module.exports = router;
-

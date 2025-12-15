@@ -30,7 +30,7 @@
         </div>
         <a href="#" class="active" onclick="showDashboard()"><i class="fas fa-chalkboard-teacher me-2"></i> Dashboard</a>
         <a href="#" id="nav-myclasses"><i class="fas fa-calendar-check me-2"></i> My Classes</a>
-        <a href="#"><i class="fas fa-chart-bar me-2"></i> Reports</a>
+        <a href="#" id="nav-reports"><i class="fas fa-chart-bar me-2"></i> Reports</a>
         <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt me-2"></i> Logout</a>
     </div>
 
@@ -98,11 +98,112 @@
             </div>
         </div>
 
-        <!-- My Classes Iframe View (hidden by default) -->
-        <div id="view-myclasses-iframe" style="display:none;">
+        <!-- My Classes View (hidden by default) -->
+        <div id="view-myclasses" style="display:none;">
             <div class="card card-stat">
-                <div class="card-body p-0">
-                    <iframe id="myClassesIframe" src="" style="width:100%;height:600px;border:0;display:block"></iframe>
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">All Classes</h5>
+                    <button class="btn btn-sm btn-primary" onclick="loadMyClasses()"><i class="fas fa-sync"></i> Refresh</button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Unit</th>
+                                    <th>Course</th>
+                                    <th>Room</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="myClassesTable">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports View (hidden by default) -->
+        <div id="view-reports" style="display:none;">
+            <div class="card card-stat">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Attendance Reports</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Class</label>
+                            <select id="reportClassFilter" class="form-select">
+                                <option value="">All Classes</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" id="reportStartDate" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">End Date</label>
+                            <input type="date" id="reportEndDate" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <button class="btn btn-primary d-block" onclick="generateReport()">Generate Report</button>
+                        </div>
+                    </div>
+                    <div id="reportSummary" class="row mb-4" style="display:none;">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h3 id="totalRecords">0</h3>
+                                    <small>Total Records</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h3 id="presentCount">0</h3>
+                                    <small>Present</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body text-center">
+                                    <h3 id="lateCount">0</h3>
+                                    <small>Late</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h3 id="avgRiskScore">0</h3>
+                                    <small>Avg Risk Score</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Class</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Risk Score</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportTable">
+                                <tr><td colspan="5" class="text-center text-muted">Click "Generate Report" to view data</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -215,106 +316,85 @@
             if (!res.ok) throw new Error(`Server returned ${res.status}`);
             const data = await res.json();
 
-            // Profile
-            document.getElementById('lecturerName').innerText = data.user.name;
-            document.getElementById('profileImg').src = data.user.profileImage;
-
-            // Stats
-            document.getElementById('totalClasses').innerText = data.stats.totalClasses;
-            document.getElementById('avgAttendance').innerText = `${data.stats.avgAttendance}%`;
-            document.getElementById('nextClass').innerText = data.stats.nextClass;
-
-            // Next Class Action
-            const nextClassObj = data.schedule.find(c => c.status === 'upcoming' || c.status === 'delayed');
-            if (nextClassObj) {
-                const unitSafe = (nextClassObj.unit || '').replace(/'/g, "\\'");
-                document.getElementById('nextClassAction').innerHTML = `<button class="btn btn-sm btn-light text-primary w-100" onclick="generateQrAndStart('${nextClassObj._id}', '${unitSafe}')"><i class="fas fa-qrcode me-1"></i> Generate QR</button>`;
-            } else {
-                document.getElementById('nextClassAction').innerHTML = '';
+            // Check if user data exists (handle deleted accounts or stale tokens)
+            if (!data.user) {
+                localStorage.removeItem('token');
+                window.location.href = '../login.html';
+                return;
             }
 
-            // Schedule
-            const tbody = document.getElementById('scheduleTable');
-            tbody.innerHTML = '';
+            // Join socket rooms for each class
+            if (socket) {
+                data.schedule.forEach(cls => socket.emit('joinClass', cls._id));
+            }
             
-            data.schedule.forEach(cls => {
+            document.getElementById('lecturerName').innerText = data.user.name;
+
+            const tbody = document.getElementById('scheduleTable');
+            tbody.innerHTML = data.schedule.map(cls => {
                 const time = new Date(cls.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 const unitSafe = (cls.unit || '').replace(/'/g, "\\'");
+                
                 let actions = '';
                 let statusBadge = '';
 
-                if (cls.status === 'upcoming') {
-                    statusBadge = '<span class="badge bg-primary">Upcoming</span>';
-                    actions = `
-                        <button class="btn btn-sm btn-success me-1" onclick="startClass('${cls._id}', '${unitSafe}')">Start</button>
-                        <button class="btn btn-sm btn-dark me-1" onclick="generateQrAndStart('${cls._id}', '${unitSafe}')"><i class="fas fa-qrcode"></i> Generate QR</button>
-                        <button class="btn btn-sm btn-warning me-1" onclick="cancelClass('${cls._id}')">Cancel</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteClass('${cls._id}')"><i class="fas fa-trash"></i></button>
-                    `;
-                } else if (cls.status === 'ongoing') {
-                    statusBadge = '<span class="badge bg-success">Ongoing</span>';
-                    actions = `
-                        <button class="btn btn-sm btn-info me-1" onclick="showQrModal('${cls._id}', '${unitSafe}')">Show QR</button>
-                        <button class="btn btn-sm btn-danger" onclick="endClass('${cls._id}')">End</button>
-                    `;
-                } else {
-                    statusBadge = `<span class="badge bg-secondary">${cls.status}</span>`;
-                    actions = `<button class="btn btn-sm btn-danger" onclick="deleteClass('${cls._id}')"><i class="fas fa-trash"></i> Delete</button>`;
+                switch (cls.status) {
+                    case 'upcoming':
+                        statusBadge = '<span class="badge bg-primary">Upcoming</span>';
+                        actions = `<button class="btn btn-sm btn-success" onclick="startClass('${cls._id}', '${unitSafe}')">Start Class</button>`;
+                        break;
+                    case 'ongoing':
+                        statusBadge = `<span class="badge bg-success">Ongoing ${cls.lecturerLate ? '(Late)' : ''}</span>`;
+                        actions = `<button class="btn btn-sm btn-info" onclick="startClass('${cls._id}', '${unitSafe}')">Show QR</button>`;
+                        break;
+                    case 'completed':
+                        statusBadge = '<span class="badge bg-secondary">Completed</span>';
+                        break;
+                    case 'cancelled':
+                        statusBadge = '<span class="badge bg-danger">Cancelled</span>';
+                        break;
+                    default:
+                        statusBadge = `<span class="badge bg-light text-dark">${cls.status}</span>`;
                 }
 
-                tbody.innerHTML += `
+                return `
                     <tr data-id="${cls._id}">
                         <td>${time}</td>
                         <td><strong>${cls.unit}</strong></td>
                         <td>${cls.room || 'TBA'}</td>
                         <td>${statusBadge}</td>
                         <td>${actions}</td>
-                    </tr>
-                `;
-            });
-
-            // Also refresh sidebar/table data
-            // (table view will be populated when user clicks 'My Classes')
-            if (typeof loadMyClasses === 'function') loadMyClasses();
-
+                    </tr>`;
+            }).join('');
         } catch (err) {
             console.error(err);
-            const alertArea = document.getElementById('alertArea');
-            if (alertArea) alertArea.innerHTML = `<div class="alert alert-danger">Failed to load dashboard: ${err.message}</div>`;
+            document.getElementById('alertArea').innerHTML = `<div class="alert alert-danger">Failed to load dashboard: ${err.message}</div>`;
         }
     }
 
     // --- 2. Class Actions ---
     async function startClass(id, name) {
-        // In a real app, this might be triggered after "Scan Room QR" success
         try {
-            await fetch(`${API_URL}/lecturer/class/${id}/start`, {
+            const res = await fetch(`${API_URL}/lecturer/class/${id}/start`, {
                 method: 'POST',
-                headers: { 'Authorization': token }
+                headers: { 'Authorization': token, 'Content-Type': 'application/json' },
             });
-            showQrModal(id, name);
-            loadDashboard();
-        } catch (err) {
-            Swal.fire('Error', 'Could not start class', 'error');
-        }
-    }
+            const data = await res.json();
 
-    async function generateQrAndStart(id, name) {
-        try {
-            await fetch(`${API_URL}/lecturer/class/${id}/start`, {
-                method: 'POST',
-                headers: { 'Authorization': token }
-            });
-            
-            socket.emit('classUpdate', {
-                title: 'Attendance Open',
-                message: `QR Code generated for ${name}. Please scan to mark attendance.`
-            });
+            if (!res.ok) {
+                // If class is already ongoing, the backend returns the existing QR payload
+                if (res.status === 400 && data.error && data.error.includes('already')) {
+                     const existingPayload = data.qrPayload || `${id}|${data.qrToken}`;
+                     showQrModal(id, name, existingPayload);
+                     return;
+                }
+                throw new Error(data.error || 'Failed to start class');
+            }
 
-            showQrModal(id, name);
-            loadDashboard();
+            showQrModal(id, name, data.qrPayload);
+            loadDashboard(); // Refresh schedule to show 'ongoing' status
         } catch (err) {
-            Swal.fire('Error', 'Could not generate QR', 'error');
+            Swal.fire('Error', err.message, 'error');
         }
     }
 
@@ -338,9 +418,6 @@
                 Swal.fire('Deleted', 'Class deleted successfully', 'success');
                 loadDashboard();
                 if (typeof loadMyClasses === 'function') loadMyClasses();
-                // If My Classes iframe is present, reload it to reflect deletion
-                const iframe = document.getElementById('myClassesIframe');
-                if (iframe && iframe.contentWindow) iframe.contentWindow.location.reload();
             } else {
                 const data = await res.json();
                 Swal.fire('Error', data.error || 'Failed to delete class', 'error');
@@ -362,79 +439,72 @@
     }
 
     // --- 3. QR Display Logic ---
-    function showQrModal(id, name) {
+    function showQrModal(id, name, qrPayload) {
         currentClassId = id;
         document.getElementById('qrClassName').innerText = name;
         
         const modal = new bootstrap.Modal(document.getElementById('classQrModal'));
         modal.show();
 
-        // Clear previous QR
         document.getElementById('qrcode').innerHTML = '';
-        
-        // Request server-side time-bound QR payload (classId|token)
+        new QRCode(document.getElementById("qrcode"), { text: qrPayload, width: 250, height: 250 });
+
+        // Get initial count and then listen for real-time updates
         (async () => {
-            try {
-                const res = await fetch(`${API_URL}/lecturer/class/${id}/qr`, { headers: { 'Authorization': token } });
-                if (!res.ok) throw new Error('Failed to get QR');
-                const json = await res.json();
-                const payload = json.qrPayload || id;
-                qrCodeObj = new QRCode(document.getElementById("qrcode"), {
-                    text: payload,
-                    width: 250,
-                    height: 250
-                });
-            } catch (e) {
-                console.error('QR generation failed', e);
-                qrCodeObj = new QRCode(document.getElementById("qrcode"), { text: id, width: 250, height: 250 });
-            }
+            const res = await fetch(`${API_URL}/lecturer/class/${id}/attendance`, { headers: { 'Authorization': token } });
+            const data = await res.json();
+            document.getElementById('liveCount').innerText = data.count;
         })();
-
-        // Start polling for live attendance count
-        updateLiveCount(id);
     }
 
-    async function updateLiveCount(id) {
-        if (currentClassId !== id) return;
-        const res = await fetch(`${API_URL}/lecturer/class/${id}/attendance`, {
-            headers: { 'Authorization': token }
+    // Real-time attendance counter
+    if (socket) {
+        socket.on('attendanceUpdated', (data) => {
+            if (data.classId === currentClassId) {
+                const countEl = document.getElementById('liveCount');
+                let currentCount = parseInt(countEl.innerText) || 0;
+                countEl.innerText = currentCount + 1;
+            }
         });
-        const data = await res.json();
-        document.getElementById('liveCount').innerText = data.count;
-        
-        // Poll every 5 seconds if modal is open
-        if (document.getElementById('classQrModal').classList.contains('show')) {
-            setTimeout(() => updateLiveCount(id), 5000);
-        }
     }
 
-    // --- 4. Room Scanner (Lecturer Check-In) ---
-    let html5QrcodeScanner;
+        // --- 4. Room Scanner (Lecturer Check-In) ---
+    let html5QrcodeScanner = null;
     document.getElementById('scanRoomModal').addEventListener('shown.bs.modal', () => {
+        if (html5QrcodeScanner) return; // Prevent duplicate init
         html5QrcodeScanner = new Html5Qrcode("reader");
         html5QrcodeScanner.start(
             { facingMode: "environment" },
             { fps: 10, qrbox: { width: 250, height: 250 } },
             onScanSuccess,
-            () => {}
-        );
+            (errorMessage) => { /* ignore frame errors */ }
+        ).catch(err => {
+            console.error("Camera start failed", err);
+            let errMsg = "Camera failed: " + err;
+            if (err.name === 'NotReadableError') errMsg = "Camera is in use by another app. Please close it.";
+            if (err.name === 'NotAllowedError') errMsg = "Camera permission denied.";
+
+            document.getElementById('reader').innerHTML = `<div class="alert alert-danger">${errMsg}</div>`;
+            html5QrcodeScanner = null; // Reset so we can try again
+        });
     });
 
     document.getElementById('scanRoomModal').addEventListener('hidden.bs.modal', () => {
-        if (html5QrcodeScanner) html5QrcodeScanner.stop().then(() => html5QrcodeScanner.clear());
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.stop().then(() => {
+                html5QrcodeScanner.clear();
+                html5QrcodeScanner = null;
+            }).catch(err => {
+                console.warn("Scanner stop error:", err);
+                html5QrcodeScanner = null;
+            });
+        }
     });
 
-    function onScanSuccess(decodedText) {
-        html5QrcodeScanner.stop();
+    async function onScanSuccess(decodedText) {
+        // Close modal immediately; cleanup happens in 'hidden.bs.modal' event
         bootstrap.Modal.getInstance(document.getElementById('scanRoomModal')).hide();
-        
-        // Verify room logic here (Mock)
-        Swal.fire({
-            icon: 'success',
-            title: 'Room Verified',
-            text: `Checked in at: ${decodedText}`,
-            timer: 2000
-        });
+        Swal.fire({ icon: 'success', title: 'Room Verified', text: `Checked in at: ${decodedText}` });
     }
 
     function logout() {
@@ -494,14 +564,20 @@
                 tbody.innerHTML = classes.map(c => {
                     const dt = c.startTime ? new Date(c.startTime) : null;
                     const label = dt ? dt.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'TBA';
-                    const actions = `<button class="btn btn-sm btn-primary me-1" onclick="showQrModal('${c._id}','${(c.unit||'').replace(/'/g,"\'")}')">Show QR</button>`;
+                    const unitSafe = (c.unit||'').replace(/'/g,"\\'");
+                    
+                    let actions = `<button class="btn btn-sm btn-outline-info me-1" onclick="showQrModal('${c._id}','${unitSafe}')">QR</button>`;
+                    if(c.status === 'upcoming') {
+                        actions += `<button class="btn btn-sm btn-outline-danger" onclick="deleteClass('${c._id}')"><i class="fas fa-trash"></i></button>`;
+                    }
+
                     return `
                         <tr data-id="${c._id}">
                             <td>${label}</td>
                             <td>${c.unit || ''}</td>
                             <td>${c.course || ''}</td>
                             <td>${c.room || 'TBA'}</td>
-                            <td>${c.status || ''}</td>
+                            <td><span class="badge bg-${c.status === 'ongoing' ? 'success' : 'secondary'}">${c.status || 'upcoming'}</span></td>
                             <td>${actions}</td>
                         </tr>`;
                 }).join('');
@@ -531,33 +607,88 @@
     // --- View toggles ---
     function showMyClasses(highlightId) {
         document.getElementById('scheduleCard').style.display = 'none';
-        document.getElementById('view-myclasses-iframe').style.display = 'block';
-        const iframe = document.getElementById('myClassesIframe');
-        // Add a cache-busting param so refresh shows latest data when reopened
-        const suffix = highlightId ? `?highlight=${highlightId}` : '';
-        iframe.src = `my-classes.html${suffix}`;
+        document.getElementById('view-myclasses').style.display = 'block';
+        document.getElementById('view-reports').style.display = 'none';
+        loadMyClasses();
     }
 
     function showDashboard() {
-        document.getElementById('view-myclasses-iframe').style.display = 'none';
+        document.getElementById('view-myclasses').style.display = 'none';
+        document.getElementById('view-reports').style.display = 'none';
         document.getElementById('scheduleCard').style.display = 'block';
-        // refresh today's schedule
         loadDashboard();
     }
 
-    // Attach UI event listeners (guard for missing elements)
+    function showReports() {
+        document.getElementById('scheduleCard').style.display = 'none';
+        document.getElementById('view-myclasses').style.display = 'none';
+        document.getElementById('view-reports').style.display = 'block';
+        loadReportFilters();
+    }
+
+    async function loadReportFilters() {
+        try {
+            const res = await fetch(`${API_URL}/lecturer/classes`, { headers: { 'Authorization': token } });
+            const classes = await res.json();
+            const select = document.getElementById('reportClassFilter');
+            select.innerHTML = '<option value="">All Classes</option>' + 
+                classes.map(c => `<option value="${c._id}">${c.unit} - ${c.course || ''}</option>`).join('');
+        } catch (err) {
+            console.error('Failed to load class filters:', err);
+        }
+    }
+
+    async function generateReport() {
+        try {
+            const classId = document.getElementById('reportClassFilter').value;
+            const startDate = document.getElementById('reportStartDate').value;
+            const endDate = document.getElementById('reportEndDate').value;
+            
+            const params = new URLSearchParams();
+            if (classId) params.append('classId', classId);
+            if (startDate) params.append('startDate', startDate);
+            if (endDate) params.append('endDate', endDate);
+            
+            const res = await fetch(`${API_URL}/lecturer/reports/attendance?${params}`, {
+                headers: { 'Authorization': token }
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                document.getElementById('totalRecords').textContent = data.summary.totalRecords;
+                document.getElementById('presentCount').textContent = data.summary.presentCount;
+                document.getElementById('lateCount').textContent = data.summary.lateCount;
+                document.getElementById('avgRiskScore').textContent = Math.round(data.summary.averageRiskScore);
+                document.getElementById('reportSummary').style.display = 'block';
+                
+                const tbody = document.getElementById('reportTable');
+                tbody.innerHTML = data.records.map(r => `
+                    <tr>
+                        <td>${r.user?.name || 'Unknown'} (${r.user?.regNo || 'N/A'})</td>
+                        <td>${r.classSession?.unit || 'N/A'}</td>
+                        <td>${new Date(r.timestamp).toLocaleDateString()}</td>
+                        <td><span class="badge bg-${r.status === 'present' ? 'success' : 'warning'}">${r.status}</span></td>
+                        <td>${r.aiRiskScore || 0}</td>
+                    </tr>
+                `).join('') || '<tr><td colspan="5" class="text-center text-muted">No records found</td></tr>';
+            } else {
+                Swal.fire('Error', data.error, 'error');
+            }
+        } catch (err) {
+            Swal.fire('Error', 'Failed to generate report', 'error');
+        }
+    }
+
+    // Attach UI event listeners
     const navMy = document.getElementById('nav-myclasses');
     if (navMy) navMy.addEventListener('click', e => { e.preventDefault(); showMyClasses(); });
+    
+    const navReports = document.getElementById('nav-reports');
+    if (navReports) navReports.addEventListener('click', e => { e.preventDefault(); showReports(); });
 
     const backBtn = document.getElementById('btn-back-dashboard');
     if (backBtn) backBtn.addEventListener('click', e => { e.preventDefault(); showDashboard(); });
 
-    const refreshIframeBtn = document.getElementById('btn-refresh-iframe');
-    if (refreshIframeBtn) refreshIframeBtn.addEventListener('click', e => {
-        e.preventDefault();
-        const iframe = document.getElementById('myClassesIframe');
-        if (iframe) iframe.contentWindow.location.reload();
-    });
 </script>
 </body>
 </html>

@@ -1,21 +1,31 @@
 const express = require('express');
 const router = express.Router();
-const classController = require('../controllers/classController');
-const authMiddleware = require('../utils/authMiddleware');
 
-// Create a new class session (lecturer/admin)
-router.post('/', authMiddleware, classController.createClassSession);
+const authMiddleware = (req, res, next) => {
+  const token = req.headers.authorization;
+  if (!token) return res.status(403).json({ error: 'No token' });
+  next();
+};
 
-// Get all class sessions (for display)
-router.get('/', authMiddleware, classController.getAllClassSessions);
+const startAttendance = async (req, res) => {
+  res.json({ message: 'Start attendance endpoint working' });
+};
 
-// Get a single class session
-router.get('/:id', authMiddleware, classController.getClassSessionById);
+const refreshQR = async (req, res) => {
+  res.json({ message: 'Refresh QR endpoint working' });
+};
 
-// Update a class session
-router.put('/:id', authMiddleware, classController.updateClassSession);
+const endAttendance = async (req, res) => {
+  res.json({ message: 'End attendance endpoint working' });
+};
 
-// Delete a class session
-router.delete('/:id', authMiddleware, classController.deleteClassSession);
+const getAllClassSessions = async (req, res) => {
+  res.json({ message: 'Get all classes endpoint working' });
+};
+
+router.post('/start-attendance', authMiddleware, startAttendance);
+router.post('/refresh-qr/:classSessionId', authMiddleware, refreshQR);
+router.post('/end-attendance/:classSessionId', authMiddleware, endAttendance);
+router.get('/', authMiddleware, getAllClassSessions);
 
 module.exports = router;

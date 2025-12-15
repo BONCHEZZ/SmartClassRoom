@@ -1,16 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const attendanceController = require('../controllers/attendanceController');
-const authMiddleware = require('../utils/authMiddleware');
 
-const attendanceRoutes = (io) => {
-  // Mark attendance (for students)
-  router.post('/mark', authMiddleware, (req, res) => attendanceController.markAttendance(req, res, io));
-
-  // Get attendance for a specific student/class (for lecturer/admin)
-  router.get('/:id', authMiddleware, attendanceController.getAttendance);
-
-  return router;
+const authMiddleware = (req, res, next) => {
+  const token = req.headers.authorization;
+  if (!token) return res.status(403).json({ error: 'No token' });
+  next();
 };
 
-module.exports = attendanceRoutes;
+const scanQRAttendance = async (req, res) => {
+  res.json({ message: 'QR scan endpoint working' });
+};
+
+const getAttendance = async (req, res) => {
+  res.json({ message: 'Get attendance endpoint working' });
+};
+
+router.post('/scan', authMiddleware, scanQRAttendance);
+router.get('/:id', authMiddleware, getAttendance);
+
+module.exports = router;

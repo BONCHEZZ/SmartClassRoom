@@ -7,17 +7,29 @@ const ClassSessionSchema = new mongoose.Schema({
   lecturer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   lecturerName: { type: String },
   startTime: { type: Date, required: true },
-  // actualStart: the real time the class was started (set when lecturer starts class)
   actualStart: { type: Date },
-  // lecturer check-in metadata
   lecturerCheckInTime: { type: Date },
   lecturerLate: { type: Boolean, default: false },
-  // QR token for time-bound attendance marking (ephemeral)
   qrToken: { type: String },
   qrExpires: { type: Date },
   endTime: { type: Date },
   room: { type: String },
-  status: { type: String, default: 'upcoming' }
-});
+  status: { type: String, default: 'upcoming' },
+  // ClassTrack AI enhancements
+  location: {
+    latitude: { type: Number },
+    longitude: { type: Number },
+    radius: { type: Number, default: 50 } // meters
+  },
+  attendanceActive: { type: Boolean, default: false },
+  attendanceStarted: { type: Date },
+  attendanceEnded: { type: Date },
+  aiAnalytics: {
+    expectedStudents: { type: Number, default: 0 },
+    actualAttendance: { type: Number, default: 0 },
+    lateArrivals: { type: Number, default: 0 },
+    suspiciousScans: { type: Number, default: 0 }
+  }
+}, { timestamps: true });
 
 module.exports = mongoose.model('ClassSession', ClassSessionSchema);

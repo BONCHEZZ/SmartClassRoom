@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report Issue - ClassTrack AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Report an Issue (Anonymous)</h4>
+                    <small class="text-muted">Your identity will remain confidential</small>
+                </div>
+                <div class="card-body">
+                    <form id="reportForm">
+                        <div class="mb-3">
+                            <label class="form-label">Issue Type</label>
+                            <select class="form-select" id="reportType" required>
+                                <option value="">Select type</option>
+                                <option value="technical">Technical Issue</option>
+                                <option value="lecturer">Lecturer Concern</option>
+                                <option value="system">System Problem</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Subject</label>
+                            <input type="text" class="form-control" id="reportSubject" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" id="reportDescription" rows="5" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Priority</label>
+                            <select class="form-select" id="reportPriority">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                        <div class="text-end">
+                            <button type="button" class="btn btn-secondary me-2" onclick="history.back()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Submit Report</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.getElementById('reportForm').onsubmit = async e => {
+    e.preventDefault();
+    
+    const formData = {
+        type: document.getElementById('reportType').value,
+        subject: document.getElementById('reportSubject').value,
+        description: document.getElementById('reportDescription').value,
+        priority: document.getElementById('reportPriority').value
+    };
+    
+    try {
+        const res = await fetch('http://localhost:5000/api/reports/submit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Report Submitted',
+                text: 'Your anonymous report has been sent to administrators',
+                timer: 2000
+            }).then(() => {
+                history.back();
+            });
+        } else {
+            Swal.fire('Error', data.error, 'error');
+        }
+    } catch (error) {
+        Swal.fire('Error', 'Failed to submit report', 'error');
+    }
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,247 @@
+Class Track AI
+
+Academix
+
+Hackathon Presentation
+
+Slide 1: Introduction
+
+Good morning judges and mentors.
+
+We are Academix, and today we are presenting an AI‑assisted smart attendance and class monitoring system designed to solve real problems in university learning environments.
+
+
+Slide 2: Problem Statement
+
+In many universities, attendance and class communication still rely on:
+
+Manual signing sheets
+
+Unverified attendance records
+
+WhatsApp groups and class representatives
+
+
+This leads to:
+
+Inaccurate student attendance records
+
+No tracking of lecturer attendance
+
+Delayed communication
+
+Students wasting time attending classes that don’t happen
+
+Limited accountability for departments
+
+
+
+Slide 3: Why This Is a Serious Problem
+
+Students lose valuable learning time
+
+Lecturers lack accountability
+
+Departments cannot enforce policies
+
+Attendance data is unreliable
+
+Overall academic efficiency is reduced
+
+
+This directly affects student satisfaction and academic performance.
+
+
+Slide 4: Our Proposed Solution
+
+We built an AI‑assisted smart attendance and class monitoring system that uses:
+
+QR code attendance
+
+Real‑time notifications
+
+AI‑powered analytics
+
+
+The system automates attendance, improves communication, and introduces accountability across students, lecturers, and departments.
+
+Slide 5: System Users
+
+The system has three main users:
+
+1. Students – Check in via QR code and receive class updates
+
+
+2. Lecturers – Manage classes and attendance
+
+
+3. HOD/Admin – Monitor attendance and enforce accountability
+
+
+Slide 6: Student Dashboard Features
+
+QR code scanner for attendance
+
+Real‑time notifications (class cancelled, delayed, room change)
+
+Attendance history
+
+Timetable view
+
+AI insights:
+
+Attendance trends
+
+Absenteeism risk prediction
+
+
+Slide 7: Lecturer Dashboard Features
+
+Generate unique QR codes per class session
+
+Mark lecturer arrival
+
+View student attendance in real time
+
+Send instant announcements
+
+Lecturer attendance analytics
+
+
+Slide 8: HOD / Admin Dashboard Features
+
+Department‑wide attendance overview
+
+Lecturer attendance tracking
+
+Student attendance reports
+
+AI alerts for:
+
+Frequent lecturer lateness
+
+Low attendance units
+
+Classes likely to be cancelled
+
+
+Exportable reports
+
+
+Slide 9: How QR Code Attendance Works
+
+1. Lecturer generates a QR code for a class session
+
+
+2. Students scan the QR code to check in
+
+
+3. Attendance is validated by time and session
+
+
+4. Duplicate or late check‑ins are prevented
+
+
+
+This removes manual signing and fraud.
+
+
+Slide 10: Real‑Time Communication
+
+The system automatically notifies students when:
+
+A lecturer is late
+
+A class is cancelled
+
+Class details change
+
+
+This prevents wasted time and confusion.
+
+Slide 11: AI Component (Smart Analytics)
+
+The AI analyzes attendance data to:
+
+Predict student absenteeism risk
+
+Detect frequent lecturer lateness
+
+Identify classes likely to be cancelled
+
+Generate smart departmental reports
+
+
+This enables proactive decision‑making.
+
+Slide 12: Technology Stack
+
+Frontend: HTML, CSS, JavaScript, Bootstrap
+
+Backend: Node.js and Express
+
+Database: MongoDB / Firebase
+
+QR Codes: JavaScript‑based generator and scanner
+
+Charts & Analytics: Chart.js
+
+
+Slide 13: Live Demo
+
+In this demo, we will show:
+
+1. Student QR code attendance
+
+
+2. Lecturer generating a QR code and sending updates
+
+
+3. Admin dashboard with analytics and alerts
+
+
+Slide 14: Impact of the System
+
+Improved attendance accuracy
+
+Better lecturer accountability
+
+Reduced misinformation
+
+Saved student time
+
+Data‑driven departmental decisions
+
+
+Slide 15: Scalability & Future Improvements
+
+With more time, the system can be expanded to:
+
+Mobile applications
+
+Biometric verification
+
+LMS integration
+
+Advanced AI/ML models
+
+Institution‑wide deployment
+
+
+Slide 16: Conclusion
+
+Our solution transforms attendance and class communication by:
+
+Automating attendance
+
+Enabling real‑time updates
+
+Using AI for smarter insights
+
+
+This creates a more transparent, efficient, and accountable academic environment.
+
+
+Slide 17: Thank You
+
+Thank you for your time.

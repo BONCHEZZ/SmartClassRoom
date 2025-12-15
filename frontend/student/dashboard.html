@@ -27,11 +27,15 @@
             <img id="sidebarProfileImg" src="https://via.placeholder.com/80" class="rounded-circle mb-2">
             <p id="studentName" class="mb-0 fw-bold">Loading...</p>
             <small id="studentId" class="text-muted">ID: ...</small>
+            <div class="mt-2">
+                <button id="editProfileBtn" class="btn btn-sm btn-light">Edit Profile</button>
+            </div>
         </div>
         <a href="#" class="active"><i class="fas fa-home me-2"></i> Dashboard</a>
         <a href="#schedule"><i class="fas fa-calendar-alt me-2"></i> Schedule</a>
         <a href="#" id="nav-enroll"><i class="fas fa-book-open me-2"></i> Enroll Course</a>
         <a href="#history"><i class="fas fa-history me-2"></i> History</a>
+        <a href="report-issue.html"><i class="fas fa-bullhorn me-2"></i> Report Issue</a>
         <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt me-2"></i> Logout</a>
     </div>
 
@@ -44,7 +48,7 @@
                 <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#qrModal">
                     <i class="fas fa-qrcode me-2"></i> Scan QR
                 </button>
-                <button class="btn btn-light position-relative">
+                <button class="btn btn-light position-relative" onclick="document.getElementById('notificationList').scrollIntoView({behavior: 'smooth'})">
                     <i class="fas fa-bell"></i>
                     <span id="notifCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display:none">0</span>
                 </button>
@@ -95,7 +99,7 @@
                 </div>
 
                 <!-- Today's Schedule -->
-                <div class="card card-stat mb-4">
+                <div class="card card-stat mb-4" id="schedule">
                     <div class="card-header bg-white">
                         <h5 class="mb-0">Today's Schedule</h5>
                     </div>
@@ -103,6 +107,19 @@
                         <ul class="list-group list-group-flush" id="scheduleList">
                             <!-- Populated by JS -->
                             <li class="list-group-item text-center text-muted">No classes today</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Available Classes -->
+                <div class="card card-stat mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">Available Classes</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <ul class="list-group list-group-flush" id="availableClassesList">
+                            <!-- Populated by JS -->
+                            <li class="list-group-item text-center text-muted">No available classes</li>
                         </ul>
                     </div>
                 </div>
@@ -176,6 +193,68 @@
     </div>
 </div>
 
+<!-- Edit Profile Modal (added) -->
+<div class="modal fade" id="editProfileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Profile</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="profileForm">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input id="profileName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">New Password (leave blank to keep)</label>
+                        <input id="profilePassword" type="password" class="form-control" />
+                    </div>
+                    <div class="text-end">
+                        <button class="btn btn-primary" type="submit">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Issue Modal -->
+<div class="modal fade" id="reportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Report Class Issue</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="reportForm">
+                    <div class="mb-3">
+                        <label class="form-label">Issue Type</label>
+                        <select id="reportType" class="form-select" required>
+                            <option value="missed_class">Lecturer Missed Class</option>
+                            <option value="lecturer_late">Lecturer Late</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Course / Unit</label>
+                        <input id="reportCourse" class="form-control" placeholder="e.g. Data Structures" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description (Optional)</label>
+                        <textarea id="reportDesc" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="text-end">
+                        <button class="btn btn-danger" type="submit">Submit Report</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- QR Scanner Modal -->
 <div class="modal fade" id="qrModal" tabindex="-1">
     <div class="modal-dialog">
@@ -196,16 +275,17 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://unpkg.com/html5-qrcode"></script>
-<script src="/socket.io/socket.io.js"></script>
+<script src="http://localhost:5000/socket.io/socket.io.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
     const API_URL = 'http://localhost:5000/api';
     const token = localStorage.getItem('token');
+    let socket = null;
+    try { if (typeof io !== 'undefined') socket = io('http://localhost:5000'); } catch(e) { console.warn('Socket.io not available', e); }
 
     if (!token) window.location.href = '../login.html';
 
-    // --- 1. Fetch Dashboard Data ---
     async function loadDashboard() {
         try {
             const res = await fetch(`${API_URL}/student/dashboard`, {
@@ -214,20 +294,27 @@
             const data = await res.json();
 
             // Update Profile
-            document.getElementById('studentName').innerText = data.user.name;
-            document.getElementById('studentId').innerText = `ID: ${data.user.regNo || 'N/A'}`;
-            document.getElementById('sidebarProfileImg').src = data.user.profileImage;
+            // Defensive profile rendering
+            const name = data.user && data.user.name ? data.user.name : 'Student';
+            const reg = data.user && data.user.regNo ? data.user.regNo : 'N/A';
+            const img = data.user && data.user.profileImage ? data.user.profileImage : 'https://via.placeholder.com/80';
+            document.getElementById('studentName').innerText = name;
+            document.getElementById('studentId').innerText = `ID: ${reg}`;
+            const imgEl = document.getElementById('sidebarProfileImg');
+            imgEl.src = img;
+            imgEl.onerror = () => { imgEl.src = 'https://via.placeholder.com/80'; };
 
             // Notifications
             const notifList = document.getElementById('notificationList');
             notifList.innerHTML = '';
             const notifs = (data.user.notifications || []).slice().reverse();
             if (notifs.length === 0) {
-                notifList.innerHTML = `<div class="alert alert-info py-2 mb-2"><small>No notifications</small></div>`;
+                notifList.innerHTML = `<div class="alert alert-info py-2 mb-2"><small>No new notifications</small></div>`;
                 document.getElementById('notifCount').style.display = 'none';
             } else {
-                document.getElementById('notifCount').style.display = '';
-                document.getElementById('notifCount').innerText = notifs.filter(n => !n.read).length || notifs.length;
+                const unreadCount = notifs.filter(n => !n.read).length;
+                document.getElementById('notifCount').style.display = unreadCount > 0 ? '' : 'none';
+                document.getElementById('notifCount').innerText = unreadCount;
                 notifs.forEach(n => {
                     const alertDiv = document.createElement('div');
                     alertDiv.className = `alert ${n.read ? 'alert-secondary' : 'alert-warning'} py-2 mb-2`;
@@ -248,12 +335,13 @@
             if (data.aiInsights.riskLevel === 'High Risk') aiCard.classList.add('risk-high');
             else aiCard.classList.add('risk-low');
 
-            // Update Schedule
+            // Update Schedule & Join Socket Rooms
             const scheduleList = document.getElementById('scheduleList');
             scheduleList.innerHTML = '';
-            if (data.schedule.length > 0) {
+            const scheduleArr = Array.isArray(data.schedule) ? data.schedule : [];
+            if (scheduleArr.length > 0) {
                 // Set Next Class
-                const next = data.schedule.find(c => new Date(c.startTime) > new Date());
+                const next = scheduleArr.find(c => new Date(c.startTime) > new Date() && c.status === 'upcoming');
                 if (next) {
                     document.getElementById('nextClass').innerText = next.unit;
                     document.getElementById('nextClassTime').innerText = new Date(next.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -262,22 +350,68 @@
                     document.getElementById('nextClassTime').innerText = "For today";
                 }
 
-                data.schedule.forEach(cls => {
+                // Join a socket room for each class to receive live updates
+                if (socket) scheduleArr.forEach(cls => { try { socket.emit('joinClass', cls._id); } catch(e){} });
+
+                scheduleArr.forEach(cls => {
                     const time = new Date(cls.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    const statusBadge = cls.status === 'cancelled' 
-                        ? '<span class="badge bg-danger">Cancelled</span>' 
-                        : '<span class="badge bg-primary">Upcoming</span>';
-                    
+                    let statusBadge = '';
+                    switch(cls.status) {
+                        case 'upcoming': statusBadge = '<span class="badge bg-primary">Upcoming</span>'; break;
+                        case 'ongoing': statusBadge = `<span class="badge bg-success">Ongoing ${cls.lecturerLate ? ' (Late)' : ''}</span>`; break;
+                        case 'cancelled': statusBadge = '<span class="badge bg-danger">Cancelled</span>'; break;
+                        case 'completed': statusBadge = '<span class="badge bg-secondary">Completed</span>'; break;
+                        default: statusBadge = `<span class="badge bg-light text-dark">${cls.status}</span>`;
+                    }
                     scheduleList.innerHTML += `
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>${cls.unit}</strong> <br>
-                                <small class="text-muted"><i class="fas fa-clock"></i> ${time} | Room: ${cls.room || 'TBA'}</small>
-                            </div>
-                            ${statusBadge}
-                        </li>
-                    `;
+                        <li class="list-group-item d-flex justify-content-between align-items-center" data-class-id="${cls._id}">
+                            <div><strong>${cls.unit}</strong><br><small class="text-muted"><i class="fas fa-clock"></i> ${time} | Room: ${cls.room || 'TBA'}</small></div>
+                            <span class="status-badge">${statusBadge}</span>
+                        </li>`;
                 });
+            } else {
+                 scheduleList.innerHTML = '<li class="list-group-item text-center text-muted">No classes scheduled today</li>';
+            }
+
+            // Update Available Classes — if backend didn't send availableClasses, fetch from /api/classes
+            const availableClassesList = document.getElementById('availableClassesList');
+            availableClassesList.innerHTML = '';
+            const available = Array.isArray(data.availableClasses) ? data.availableClasses : null;
+            if (available) {
+                if (available.length === 0) availableClassesList.innerHTML = '<li class="list-group-item text-center text-muted">No available classes</li>';
+                else available.forEach(cls => {
+                    const date = new Date(cls.startTime).toLocaleDateString();
+                    const time = new Date(cls.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    availableClassesList.innerHTML += `
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div><strong>${cls.unit}</strong><br><small class="text-muted"><i class="fas fa-calendar"></i> ${date} | <i class="fas fa-clock"></i> ${time} | Room: ${cls.room || 'TBA'} | Lecturer: ${cls.lecturer ? cls.lecturer.name : 'N/A'}</small></div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="quickEnroll('${cls.unit}')">Enroll</button>
+                        </li>`;
+                });
+            } else {
+                // fallback: fetch all classes and show upcoming
+                try {
+                    const resAll = await fetch(`${API_URL}/classes`, { headers: { 'Authorization': token } });
+                    if (resAll.ok) {
+                        const all = await resAll.json();
+                        const upcoming = (all || []).filter(c => new Date(c.startTime) > new Date()).slice(0,10);
+                        if (upcoming.length === 0) availableClassesList.innerHTML = '<li class="list-group-item text-center text-muted">No available classes</li>';
+                        else upcoming.forEach(cls => {
+                            const date = new Date(cls.startTime).toLocaleDateString();
+                            const time = new Date(cls.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                            availableClassesList.innerHTML += `
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div><strong>${cls.unit}</strong><br><small class="text-muted"><i class="fas fa-calendar"></i> ${date} | <i class="fas fa-clock"></i> ${time} | Room: ${cls.room || 'TBA'} | Lecturer: ${cls.lecturer ? cls.lecturer.name : 'N/A'}</small></div>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="quickEnroll('${cls.unit}')">Enroll</button>
+                                </li>`;
+                        });
+                    } else {
+                        availableClassesList.innerHTML = '<li class="list-group-item text-center text-muted">No available classes</li>';
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch available classes', e);
+                    availableClassesList.innerHTML = '<li class="list-group-item text-center text-muted">No available classes</li>';
+                }
             }
 
             // Update History
@@ -287,22 +421,15 @@
                 historyTable.innerHTML += `
                     <tr>
                         <td>${new Date(log.timestamp).toLocaleDateString()}</td>
-                        <td>${log.classId}</td> <!-- Ideally resolve class name -->
-                        <td><span class="badge bg-${log.status === 'present' ? 'success' : 'danger'}">${log.status}</span></td>
-                    </tr>
-                `;
+                        <td>${log.classSession.unit}</td>
+                        <td><span class="badge bg-${log.status === 'present' ? 'success' : (log.status === 'late' ? 'warning' : 'danger')}">${log.status}</span></td>
+                    </tr>`;
             });
 
             // Render Chart
             new Chart(document.getElementById('attendanceChart'), {
                 type: 'doughnut',
-                data: {
-                    labels: ['Attended', 'Missed'],
-                    datasets: [{
-                        data: [data.stats.attended, data.stats.missed],
-                        backgroundColor: ['#2ecc71', '#e74c3c']
-                    }]
-                }
+                data: { labels: ['Attended', 'Missed'], datasets: [{ data: [data.stats.attended, data.stats.missed], backgroundColor: ['#2ecc71', '#e74c3c'] }] }
             });
 
         } catch (err) {
@@ -310,91 +437,75 @@
         }
     }
 
-    // --- 2. QR Scanner Logic ---
-    let html5QrcodeScanner;
+    // --- QR Scanner Logic (no changes) ---
+    let html5QrcodeScanner = null;
+    let isScanningProcessing = false;
 
     document.getElementById('qrModal').addEventListener('shown.bs.modal', () => {
+        if (html5QrcodeScanner) return;
+        isScanningProcessing = false;
+        document.getElementById('scanStatus').innerText = "Position QR code within the frame";
+        
         html5QrcodeScanner = new Html5Qrcode("reader");
-        html5QrcodeScanner.start(
-            { facingMode: "environment" },
-            { fps: 10, qrbox: { width: 250, height: 250 } },
-            onScanSuccess,
-            onScanFailure
-        );
+        html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess, ()=>{})
+        .catch(err => {
+            console.error("Camera error:", err);
+            let errMsg = "Camera failed: " + err;
+            if (err.name === 'NotReadableError') errMsg = "Camera is in use by another app. Please close it.";
+            if (err.name === 'NotAllowedError') errMsg = "Camera permission denied.";
+            
+            document.getElementById('reader').innerHTML = `<div class="alert alert-danger">${errMsg}</div>`;
+            html5QrcodeScanner = null; // Reset so we can try again
+        });
     });
-
     document.getElementById('qrModal').addEventListener('hidden.bs.modal', () => {
         if (html5QrcodeScanner) {
-            html5QrcodeScanner.stop().then(() => html5QrcodeScanner.clear());
+            html5QrcodeScanner.stop().then(() => {
+                html5QrcodeScanner.clear();
+                html5QrcodeScanner = null;
+            }).catch(() => { html5QrcodeScanner = null; });
         }
     });
-
-    async function onScanSuccess(decodedText, decodedResult) {
-        // Stop scanning
-        html5QrcodeScanner.stop();
+    async function onScanSuccess(decodedText) {
+        if (isScanningProcessing) return;
+        isScanningProcessing = true;
         
-        // Send to backend for real marking
         try {
             const res = await fetch(`${API_URL}/attendance/mark`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': token },
                 body: JSON.stringify({ qrCode: decodedText })
             });
-
-            if (res.status === 201) {
-                const json = await res.json();
-                Swal.fire({ icon: 'success', title: 'Checked In', text: json.message || 'Attendance recorded', timer: 1800 });
+            const data = await res.json();
+            if (res.ok) {
+                Swal.fire({ icon: 'success', title: 'Checked In!', timer: 1800 });
                 bootstrap.Modal.getInstance(document.getElementById('qrModal')).hide();
                 loadDashboard();
-                return;
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'Failed to check in' });
+                isScanningProcessing = false; // Allow retry
             }
-
-            if (res.status === 409) {
-                Swal.fire({ icon: 'info', title: 'Already Checked', text: 'You have already checked in for this session.' });
-                return;
-            }
-
-            if (res.status === 410) {
-                Swal.fire({ icon: 'error', title: 'Expired', text: 'This QR code has expired.' });
-                return;
-            }
-
-            const errBody = await res.json().catch(() => ({}));
-            Swal.fire({ icon: 'error', title: 'Error', text: errBody.error || 'Invalid QR Code' });
         } catch (err) {
-            console.error(err);
-            Swal.fire({ icon: 'error', title: 'Error', text: 'Network or server error' });
+            Swal.fire({ icon: 'error', title: 'Network Error' });
+            isScanningProcessing = false; // Allow retry
         }
     }
 
-    function onScanFailure(error) {
-        // handle scan failure, usually better to ignore and keep scanning.
-        // console.warn(`Code scan error = ${error}`);
+    // --- Real-Time Notifications (NEW) ---
+    const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 4000, timerProgressBar: true });
+
+    function updateClassStatus(classId, badgeHtml, toastIcon, toastTitle) {
+        const classLi = document.querySelector(`[data-class-id="${classId}"]`);
+        if (classLi) {
+            classLi.querySelector('.status-badge').innerHTML = badgeHtml;
+            Toast.fire({ icon: toastIcon, title: toastTitle });
+        }
     }
 
-    // --- 3. Real-Time Notifications ---
-    const socket = io('http://localhost:5000');
-    
-    socket.on('notifyStudents', (data) => {
-        // Add to notification list
-        const notifList = document.getElementById('notificationList');
-        const alertDiv = document.createElement('div');
-        alertDiv.className = 'alert alert-warning py-2 mb-2';
-        alertDiv.innerHTML = `<small><strong>${data.title || 'Update'}:</strong> ${data.message}</small>`;
-        notifList.prepend(alertDiv);
-
-        // Show Toast/Alert
-        const Toast = Swal.mixin({
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 3000
-        });
-        Toast.fire({
-            icon: 'info',
-            title: data.message
-        });
-    });
+    socket.on('classStarted', (data) => updateClassStatus(data.classId, '<span class="badge bg-success">Ongoing</span>', 'success', 'A class has started!'));
+    socket.on('lecturerLate', (data) => updateClassStatus(data.classId, `<span class="badge bg-warning text-dark">Lecturer Late</span>`, 'warning', `${data.lecturerName} is running late.`));
+    socket.on('classCancelled', (data) => updateClassStatus(data.classId, '<span class="badge bg-danger">Cancelled</span>', 'error', 'A class has been cancelled.'));
+    socket.on('classEnded', (data) => updateClassStatus(data.classId, '<span class="badge bg-secondary">Completed</span>', 'info', 'A class has ended.'));
 
     function logout() {
         localStorage.removeItem('token');
@@ -433,6 +544,94 @@
         }
     });
 
+    // Quick Enroll from list
+    async function quickEnroll(courseName) {
+        try {
+            const res = await fetch(`${API_URL}/student/enroll`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                body: JSON.stringify({ course: courseName })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                Swal.fire('Enrolled', `You have been enrolled in ${courseName}`, 'success');
+                loadDashboard();
+            } else {
+                Swal.fire('Error', data.error || 'Enrollment failed', 'error');
+            }
+        } catch (err) {
+            Swal.fire('Error', 'Network error', 'error');
+        }
+    }
+
+    // Edit profile wiring
+    const editBtn = document.getElementById('editProfileBtn');
+    if (editBtn) {
+        editBtn.addEventListener('click', async () => {
+            // populate modal with current name
+            try {
+                const res = await fetch(`${API_URL}/student/dashboard`, { headers: { 'Authorization': token } });
+                const data = await res.json();
+                document.getElementById('profileName').value = data.user && data.user.name ? data.user.name : '';
+                document.getElementById('profilePassword').value = '';
+                new bootstrap.Modal(document.getElementById('editProfileModal')).show();
+            } catch (err) {
+                console.error('Failed to load profile for edit', err);
+                Swal.fire('Error', 'Could not load profile', 'error');
+            }
+        });
+    }
+
+    document.getElementById('profileForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('profileName').value.trim();
+        const password = document.getElementById('profilePassword').value;
+        try {
+            const res = await fetch(`${API_URL}/student/profile`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                body: JSON.stringify({ name, password })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                Swal.fire('Saved', 'Profile updated', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('editProfileModal')).hide();
+                loadDashboard();
+            } else {
+                Swal.fire('Error', data.error || 'Update failed', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            Swal.fire('Error', 'Network error', 'error');
+        }
+    });
+
+    // Report Form Handler
+    document.getElementById('reportForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const type = document.getElementById('reportType').value;
+        const course = document.getElementById('reportCourse').value;
+        const description = document.getElementById('reportDesc').value;
+
+        try {
+            const res = await fetch(`${API_URL}/student/report`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                body: JSON.stringify({ type, subject: course, description, priority: 'medium' })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                Swal.fire('Submitted', 'Your anonymous report has been sent to administrators.', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('reportModal')).hide();
+                document.getElementById('reportForm').reset();
+            } else {
+                Swal.fire('Error', data.error || 'Submission failed', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            Swal.fire('Error', 'Network error', 'error');
+        }
+    });
 </script>
 </body>
 </html>
